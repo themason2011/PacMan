@@ -1,7 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
-using UnityEditor.Experimental.GraphView;
 using UnityEngine;
 
 public class PacMan : MonoBehaviour {
@@ -9,11 +8,16 @@ public class PacMan : MonoBehaviour {
 	public AudioClip chomp1;
 	public AudioClip chomp2;
 
+	public RuntimeAnimatorController chompAnimation;
+	public RuntimeAnimatorController deathAnimation;
+
 	public float speed = 4.0f;
 
 	public Vector2 orientation;
 
 	public Sprite idleSprite;
+
+	public bool canMove = true;
 
 	private bool playedChomp1 = false;
 
@@ -22,14 +26,14 @@ public class PacMan : MonoBehaviour {
 	private Vector2 direction = Vector2.zero;
 	private Vector2 nextDirection;
 
-	private int pelletsConsumed = 0;
-
 	private Node currentNode, previousNode, targetNode;
 
 	private Node startingPosition;
 
 	// Use this for initialization
-	void Start () {
+	void Start () 
+	{
+		SetDifficultyForLevel(GameBoard.playerLevel);
 
 		audioSource = transform.GetComponent<AudioSource>();
 
@@ -48,33 +52,64 @@ public class PacMan : MonoBehaviour {
 		ChangePosition(direction);
 	}
 
-	public void Restart()
+	void SetDifficultyForLevel(int level)
     {
-		transform.position = startingPosition.transform.position;
+		if(level == 2)
+        {
+			speed = 7;
+        }
+		else if(level == 3)
+        {
+			speed = 8;
+        }
+		else if (level == 4)
+		{
+			speed = 9;
+		}
+		else if (level >= 5)
+		{
+			speed = 10;
+		}
+	}
 
-		currentNode = startingPosition;
+	public void MoveToStartingPosition()
+    {
+		transform.GetComponent<Animator>().runtimeAnimatorController = chompAnimation;
+
+		transform.position = startingPosition.transform.position;
 
 		direction = Vector2.left;
 		orientation = Vector2.left;
+
+		UpdateOrientation();
+	}
+
+	public void Restart()
+    {
+		canMove = true;
+
+		currentNode = startingPosition;
+
 		nextDirection = Vector2.left;
 
 		ChangePosition(direction);
-    }
+	}
 	
 	// Update is called once per frame
 	void Update () {
 
-		//Debug.Log("SCORE: " + GameObject.Find("Game").GetComponent<GameBoard>().score);
+		if(canMove)
+        {
+			CheckInput();
 
-		CheckInput ();
+			Move();
 
-        Move();
+			UpdateOrientation();
 
-        UpdateOrientation ();
+			UpdateAnimationState();
 
-		UpdateAnimationState();
-
-		ConsumePellet();
+			ConsumePellet();
+		}
 	}
 
 	void PlayChompSound()
@@ -93,19 +128,19 @@ public class PacMan : MonoBehaviour {
 
 	void CheckInput () {
 
-		if (Input.GetKeyDown (KeyCode.LeftArrow)) {
+		if (Input.GetKeyDown (KeyCode.J)) {
 
 			ChangePosition(Vector2.left);
 
-		} else if (Input.GetKeyDown (KeyCode.RightArrow)) {
+		} else if (Input.GetKeyDown (KeyCode.L)) {
 
 			ChangePosition(Vector2.right);
 
-		} else if (Input.GetKeyDown (KeyCode.UpArrow)) {
+		} else if (Input.GetKeyDown (KeyCode.I)) {
 
 			ChangePosition(Vector2.up);
 
-		} else if (Input.GetKeyDown (KeyCode.DownArrow)) {
+		} else if (Input.GetKeyDown (KeyCode.K)) {
 
 			ChangePosition(Vector2.down);
 		}
@@ -192,17 +227,6 @@ public class PacMan : MonoBehaviour {
         }
 	}
 
-	void MoveToNode(Vector2 d)
-    {
-		Node moveToNode = CanMove(d);
-
-		if(moveToNode != null)
-        {
-			transform.localPosition = moveToNode.transform.position;
-			currentNode = moveToNode;
-        }
-    }
-
 	void UpdateOrientation () {
 
 		if (direction == Vector2.left) {
@@ -254,21 +278,27 @@ public class PacMan : MonoBehaviour {
 
 			if(tile != null)
             {
-				if(!tile.didConsume && (tile.isPellet || tile.isSuperPellet))
+				if(!tile.didConsume && (tile.isPellet || tile.isSuperPellet || tile.isBonusItem))
                 {
 					o.GetComponent<SpriteRenderer>().enabled = false;
 					tile.didConsume = true;
 					PlayChompSound();
-					pelletsConsumed++;
+
+					if(tile.isBonusItem)
+                    {
+						ConsumedBonusItem(tile);
+                    }
 
                     if (tile.isPellet)
                     {
-						GameObject.Find("Game").GetComponent<GameBoard>().score += 1;
+						GameBoard.score += 10;
+						GameObject.Find("Game").transform.GetComponent<GameBoard>().pelletsConsumed++;
 					}
 
 					if (tile.isSuperPellet)
 					{
-						GameObject.Find("Game").GetComponent<GameBoard>().score += 10;
+						GameBoard.score += 50;
+						GameObject.Find("Game").transform.GetComponent<GameBoard>().pelletsConsumed++;
 
 						GameObject[] ghosts = GameObject.FindGameObjectsWithTag("Ghost");
 
@@ -282,6 +312,13 @@ public class PacMan : MonoBehaviour {
         }
     }
 
+	void ConsumedBonusItem(Tile bonusItem)
+    {
+		GameBoard.score += bonusItem.pointValue;
+
+		GameObject.Find("Game").transform.GetComponent<GameBoard>().StartConsumedBonusItem(bonusItem.gameObject, bonusItem.pointValue);
+	}
+
 	Node CanMove(Vector2 d)
     {
 
@@ -289,7 +326,7 @@ public class PacMan : MonoBehaviour {
 
 		for(int i=0; i<currentNode.neighbors.Length; i++)
         {
-			if(currentNode.validDirections[i] == d)
+			if(currentNode.validDirections[i] == d && !currentNode.neighbors[i].GetComponent<Tile>().isGhostHouse)
             {
 				moveToNode = currentNode.neighbors[i];
 				break;

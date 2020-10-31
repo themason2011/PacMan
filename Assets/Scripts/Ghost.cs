@@ -12,6 +12,8 @@ public class Ghost : MonoBehaviour
     public float frightenedMoveSpeed = 2.9f;
     public float consumedMoveSpeed = 15f;
 
+    public bool canMove = true;
+
     public int blinkyReleaseTimer = 0;
     public int pinkyReleaseTimer = 5;
     public int inkyReleaseTimer = 14;
@@ -90,6 +92,8 @@ public class Ghost : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        SetDifficultyForLevel(GameBoard.playerLevel);
+
         backgroundAudio = GameObject.Find("Game").transform.GetComponent<AudioSource>();
 
         pacMan = GameObject.FindGameObjectWithTag("PacMan");
@@ -121,15 +125,18 @@ public class Ghost : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        ModeUpdate();
+        if(canMove)
+        {
+            ModeUpdate();
 
-        Move();
+            Move();
 
-        ReleaseGhosts();
+            ReleaseGhosts();
 
-        CheckCollision();
+            CheckCollision();
 
-        CheckIsInGhostHouse();
+            CheckIsInGhostHouse();
+        }
     }
 
     void CheckIsInGhostHouse()
@@ -180,19 +187,24 @@ public class Ghost : MonoBehaviour
             }
             else if(currentMode != Mode.Consumed)
             {
-                GameObject.Find("Game").transform.GetComponent<GameBoard>().Restart();
+                GameObject.Find("Game").transform.GetComponent<GameBoard>().StartDeath();
             }
         }
     }
 
     void Consumed()
     {
-        currentMode = Mode.Consumed;
+        GameBoard.score += GameBoard.ghostConsumedRunningScore;
 
+        currentMode = Mode.Consumed;
         previousMoveSpeed = moveSpeed;
         moveSpeed = consumedMoveSpeed;
 
         UpdateAnimatorController();
+
+        GameObject.Find("Game").transform.GetComponent<GameBoard>().StartConsumed(this.GetComponent<Ghost>());
+
+        GameBoard.ghostConsumedRunningScore *= 2;
     }
 
     void UpdateAnimatorController()
@@ -264,17 +276,6 @@ public class Ghost : MonoBehaviour
                     transform.localPosition = otherPortal.transform.position;
 
                     currentNode = otherPortal.GetComponent<Node>();
-
-                    debugInky = true;
-                }
-
-                if(debugInky)
-                {
-                    foreach(Node neighbor in currentNode.neighbors)
-                        Debug.Log(neighbor.transform.position);
-
-                    Debug.Log("Also here's position of currentNode");
-                    Debug.Log(currentNode.transform.position);
                 }
 
                 targetNode = ChooseNextNode();
@@ -410,18 +411,134 @@ public class Ghost : MonoBehaviour
         UpdateAnimatorController();
     }
 
+    void SetDifficultyForLevel(int level)
+    {
+        if (level == 2)
+        {
+            scatterModeTimer1 = 7;
+            chaseModeTimer1 = 20;
+            scatterModeTimer2 = 7;
+            chaseModeTimer2 = 20;
+            scatterModeTimer3 = 5;
+            chaseModeTimer3 = 1033;
+            scatterModeTimer4 = 1;
+
+            frightenedModeDuration = 9;
+            startBlinkingAt = 6;
+
+            pinkyReleaseTimer = 4;
+            inkyReleaseTimer = 12;
+            clydeReleaseTimer = 18;
+
+            moveSpeed = 6.9f;
+            normalMoveSpeed = 6.9f;
+            frightenedMoveSpeed = 3.9f;
+            consumedMoveSpeed = 18f;
+        }
+        else if (level == 3)
+        {
+            scatterModeTimer1 = 7;
+            chaseModeTimer1 = 20;
+            scatterModeTimer2 = 7;
+            chaseModeTimer2 = 20;
+            scatterModeTimer3 = 5;
+            chaseModeTimer3 = 1033;
+            scatterModeTimer4 = 1;
+
+            frightenedModeDuration = 8;
+            startBlinkingAt = 5;
+
+            pinkyReleaseTimer = 3;
+            inkyReleaseTimer = 10;
+            clydeReleaseTimer = 15;
+
+            moveSpeed = 7.9f;
+            normalMoveSpeed = 7.9f;
+            frightenedMoveSpeed = 4.9f;
+            consumedMoveSpeed = 20f;
+        }
+        else if (level == 4)
+        {
+            scatterModeTimer1 = 7;
+            chaseModeTimer1 = 20;
+            scatterModeTimer2 = 7;
+            chaseModeTimer2 = 20;
+            scatterModeTimer3 = 5;
+            chaseModeTimer3 = 1033;
+            scatterModeTimer4 = 1;
+
+            frightenedModeDuration = 7;
+            startBlinkingAt = 4;
+
+            pinkyReleaseTimer = 2;
+            inkyReleaseTimer = 8;
+            clydeReleaseTimer = 13;
+
+            moveSpeed = 8.9f;
+            normalMoveSpeed = 8.9f;
+            frightenedMoveSpeed = 4.9f;
+            consumedMoveSpeed = 22f;
+        }
+        else if (level >= 5)
+        {
+            scatterModeTimer1 = 5;
+            chaseModeTimer1 = 20;
+            scatterModeTimer2 = 5;
+            chaseModeTimer2 = 20;
+            scatterModeTimer3 = 5;
+            chaseModeTimer3 = 1037;
+            scatterModeTimer4 = 1;
+
+            frightenedModeDuration = 6;
+            startBlinkingAt = 3;
+
+            pinkyReleaseTimer = 2;
+            inkyReleaseTimer = 6;
+            clydeReleaseTimer = 10;
+
+            moveSpeed = 9.9f;
+            normalMoveSpeed = 9.9f;
+            frightenedMoveSpeed = 6.9f;
+            consumedMoveSpeed = 24f;
+        }
+    }
+
+    public void MoveToStartingPosition()
+    {
+        if (transform.name != "Blinky")
+        {
+            isInGhostHouse = true;
+        }
+
+        transform.position = startingPosition.transform.position;
+
+        if(isInGhostHouse)
+        {
+            direction = Vector2.up;
+        }
+        else
+        {
+            direction = Vector2.left;
+        }
+
+        UpdateAnimatorController();
+    }
+
     public void Restart()
     {
+        canMove = true;
+
+        currentMode = Mode.Scatter;
+
+        moveSpeed = normalMoveSpeed;
+
+        previousMoveSpeed = 0;
+
         transform.position = startingPosition.transform.position;
 
         ghostReleaseTimer = 0;
         modeChangeIteration = 1;
         modeChangeTimer = 0;
-
-        if(transform.name != "Blinky")
-        {
-            isInGhostHouse = true;
-        }
 
         currentNode = startingPosition;
 
@@ -444,6 +561,8 @@ public class Ghost : MonoBehaviour
     {
         if(currentMode != Mode.Consumed)
         {
+            GameBoard.ghostConsumedRunningScore = 200;
+
             frightenedModeTimer = 0;
             backgroundAudio.clip = GameObject.Find("Game").transform.GetComponent<GameBoard>().backgroundAudioFrightened;
             backgroundAudio.Play();
